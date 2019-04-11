@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:logger="http://www.mulesoft.org/schema/mule/logger"
+	xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/logger http://www.mulesoft.org/schema/mule/logger/current/mule-logger.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+	<flow name="pokemon:getPokemonAndLogBadPractice">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/log/bad-practice" doc:name="HTTP"/>
+        <set-variable variableName="transactionID" value="#[org.mule.util.UUID.getUUID()]" doc:name="+transactionID"/>
+        <logger message="Received Inbound Request" level="INFO" doc:name="Log Beginning"/>
+        <logger level="INFO" doc:name="Empty Logger"/>
+        <set-variable variableName="name" value="#[message.inboundProperties.'http.query.params'.name]" doc:name="+name"/>
+        <logger message="Calling Pokemon API to list details for #[flowVars.name]" level="INFO" doc:name="Logger"/>
+        <http:request config-ref="HTTP_Request_Configuration" path="/api/v2/pokemon/{pokemonName}" method="GET" host="pokeapi.co" port="443" doc:name="Call Pokemon API for Pokemon Details">
+            <http:request-builder>
+                <http:uri-param paramName="pokemonName" value="#[flowVars.name]"/>
+            </http:request-builder>
+        </http:request>
+        <flow-ref name="pokemon:transformResponse" doc:name="pokemon:transformResponse"/>
+        <message-properties-transformer scope="invocation" doc:name="+abilitiesURL, height, weight">
+            <add-message-property key="abilitiesURL" value="#[payload.abilities[0].ability.url]"/>
+            <add-message-property key="height" value="#[payload.height]"/>
+            <add-message-property key="weight" value="#[payload.weight]"/>
+        </message-properties-transformer>
+        <logger level="INFO" doc:name="Logger" message="Calling Pokemon API to list abilities"/>
+        <http:request config-ref="HTTP_Request_Configuration" path="#[new URI(flowVars.abilitiesURL).getPath()]" method="GET" host="#[new URI(flowVars.abilitiesURL).getHost()]" port="443" doc:name="Call Pokemon API for Pokemon Ability"/>
+        <flow-ref name="pokemon:transformResponse" doc:name="pokemon:transformResponse"/>
+        <set-variable variableName="ability" value="#[payload.effect_entries[0].effect]" doc:name="+ability"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	pokemon: flowVars.name,
+	ability: flowVars.ability,
+	weight: flowVars.weight,
+	height: flowVars.height,
+	transactionID: flowVars.transactionID
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Pokemon ability received #[flowVars.ability] with height : #[flowVars.height] and weight : #[flowVars.weight]" level="INFO" doc:name="Log Ending"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <logger level="ERROR" doc:name="Logger"/>
+        </catch-exception-strategy>
+    </flow>
+    <flow name="pokemon:getPokemonAndLogBestPractice">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/log/best-practice" doc:name="HTTP"/>
+        <message-properties-transformer scope="invocation" doc:name="+flowName, name, transactionID">
+            <add-message-property key="name" value="#[message.inboundProperties.'http.query.params'.name]"/>
+            <add-message-property key="flowName" value="#[context:serviceName]"/>
+            <add-message-property key="transactionID" value="#[org.mule.util.UUID.getUUID()]"/>
+        </message-properties-transformer>
+        <expression-component doc:name="Set MDC"><![CDATA[org.apache.log4j.MDC.put("resourceName", "transactionID");
+org.apache.log4j.MDC.put("resourceId",flowVars.transactionID);]]></expression-component>
+        <logger message="{&quot;message&quot;: &quot;Received inbound request and calling Pokemon API to get Pokemon information&quot;, &quot;pokemonName&quot;: &quot;#[flowVars.name]&quot;, &quot;transactionID&quot;: &quot;#[flowVars.transactionID]&quot;, &quot;flow&quot;: &quot;#[flow.name]&quot;}" level="INFO" doc:name="Log Beginning"/>
+        <http:request config-ref="HTTP_Request_Configuration" path="/api/v2/pokemon/{pokemonName}" method="GET" host="pokeapi.co" port="443" doc:name="Call Pokemon API for Pokemon Details">
+            <http:request-builder>
+                <http:uri-param paramName="pokemonName" value="#[flowVars.name]"/>
+            </http:request-builder>
+        </http:request>
+        <logger message="{&quot;message&quot; : &quot;Debug Payload&quot;, &quot;transactionID&quot;: #[flowVars.transactionID], &quot;pokemonName&quot;: &quot;#[flowVars.name]&quot;, &quot;flow&quot; : &quot;#[flow.name]&quot;, &quot;payload&quot; : #[payload]}" level="DEBUG" category="com.mule.bigcompass.getPokemonNumber" doc:name="DEBUG Logger"/>
+        <flow-ref name="pokemon:transformResponse" doc:name="pokemon:transformResponse"/>
+        <message-properties-transformer scope="invocation" doc:name="+abilitiesURL, height, weight">
+            <add-message-property key="height" value="#[payload.height]"/>
+            <add-message-property key="abilitiesURL" value="#[payload.abilities[0].ability.url]"/>
+            <add-message-property key="weight" value="#[payload.weight]"/>
+        </message-properties-transformer>
+        <logger level="INFO" doc:name="Logger" message="{&quot;message&quot;: &quot;Pokemon information received. Calling Pokemon API to list abilities at: #[flowVars.abilitiesURL]&quot;, &quot;transactionID&quot;: &quot;#[flowVars.transactionID]&quot;, &quot;pokemonName&quot;: &quot;#[flowVars.name]&quot;, &quot;height&quot;: &quot;#[flowVars.height]&quot;, &quot;weight&quot;: &quot;#[flowVars.weight]&quot;, &quot;flow&quot;: &quot;#[flow.name]&quot;}"/>
+        <http:request config-ref="HTTP_Request_Configuration" path="#[new URI(flowVars.abilitiesURL).getPath()]" method="GET" host="#[new URI(flowVars.abilitiesURL).getHost()]" port="443" doc:name="Call Pokemon API for Pokemon Ability"/>
+        <flow-ref name="pokemon:transformResponse" doc:name="pokemon:transformResponse"/>
+        <set-variable variableName="ability" value="#[payload.effect_entries[0].effect]" doc:name="+ability"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	pokemon: flowVars.name,
+	ability: flowVars.ability,
+	weight: flowVars.weight,
+	height: flowVars.height,
+	transactionID: flowVars.transactionID
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="{&quot;message&quot;: &quot;Pokemon ability received&quot;, &quot;transactionID&quot;: &quot;#[flowVars.transactionID]&quot;, &quot;pokemonName&quot;: &quot;#[flowVars.name]&quot;, &quot;height&quot;: &quot;#[flowVars.height]&quot;, &quot;weight&quot;: &quot;#[flowVars.weight]&quot;, &quot;flow&quot;: &quot;#[flow.name]&quot;}" level="INFO" doc:name="Log Ending"/>
+				<expression-component doc:name="Clear MDC"><![CDATA[org.apache.log4j.MDC.remove("resourceName");
+org.apache.log4j.MDC.remove("resourceId")]]></expression-component>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <logger level="ERROR" doc:name="Logger" message="{&quot;message&quot; : &quot;Exception : #[message.exception]&quot;, &quot;transactionID&quot;: &quot;#[flowVars.transactionID]&quot;,  &quot;flow&quot;: &quot;#[flow.name]&quot;}"/>
+        </catch-exception-strategy>
+    </flow>
+    <flow name="pokemon:getPokemonAndLogCustom">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/log/custom" doc:name="HTTP" allowedMethods="POST"/>
+        <message-properties-transformer scope="invocation" doc:name="+flowName, name, transactionID">
+            <add-message-property key="name" value="#[message.inboundProperties.'http.query.params'.name]"/>
+            <add-message-property key="flowName" value="#[context:serviceName]"/>
+            <add-message-property key="transactionID" value="#[org.mule.util.UUID.getUUID()]"/>
+        </message-properties-transformer>
+        <dw:transform-message doc:name="Set Log Content">
+            <dw:set-variable variableName="logContent"><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	"message": "Received inbound request and calling Pokemon API to get Pokemon information",
+	"transactionID": flowVars.transactionID,
+	"pokemonName": flowVars.name,
+	"flow": flowVars.flowName
+}]]></dw:set-variable>
+        </dw:transform-message>
+        <logger:send-log logFormat="JSON" logLevel="INFO" doc:name="Custom Logger Received Request">
+            <logger:log-params ref="#[flowVars.logContent]"/>
+        </logger:send-log>
+        <http:request config-ref="HTTP_Request_Configuration" path="/api/v2/pokemon/{pokemonName}" method="GET" host="pokeapi.co" port="443" doc:name="Call Pokemon API for Pokemon Details">
+            <http:request-builder>
+                <http:uri-param paramName="pokemonName" value="#[flowVars.name]"/>
+            </http:request-builder>
+        </http:request>
+        <flow-ref name="pokemon:transformResponse" doc:name="pokemon:transformResponse"/>
+        <logger message="{&quot;message&quot; : &quot;Debug Payload&quot;, &quot;transactionID&quot;: #[flowVars.transactionID], &quot;pokemonName&quot;: &quot;#[flowVars.name]&quot;, &quot;flow&quot; : &quot;#[flow.name]&quot;, &quot;payload&quot; : #[payload]}" level="DEBUG" category="com.mule.bigcompass.getPokemonNumber" doc:name="Debug Logger"/>
+        <message-properties-transformer scope="invocation" doc:name="+abilitiesURL, height, weight">
+            <add-message-property key="height" value="#[payload.height]"/>
+            <add-message-property key="abilitiesURL" value="#[payload.abilities[0].ability.url]"/>
+            <add-message-property key="weight" value="#[payload.weight]"/>
+        </message-properties-transformer>
+        <dw:transform-message doc:name="Set Log Content">
+            <dw:set-variable variableName="logContent"><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	"message": "Pokemon information received. Calling Pokemon API to list abilities at: " ++ flowVars.abilitiesURL,
+	"transactionID": flowVars.transactionID,
+	"pokemonName": flowVars.name,
+	"height": flowVars.height as :string,
+	"weight": flowVars.weight as :string,
+	"flow": flowVars.flowName
+}]]></dw:set-variable>
+        </dw:transform-message>
+        <logger:send-log logFormat="JSON" logLevel="INFO" doc:name="Custom Logger Received First Response">
+            <logger:log-params ref="#[flowVars.logContent]"/>
+        </logger:send-log>
+        <http:request config-ref="HTTP_Request_Configuration" path="#[new URI(flowVars.abilitiesURL).getPath()]" method="GET" host="#[new URI(flowVars.abilitiesURL).getHost()]" port="443" doc:name="Call Pokemon API for Pokemon Ability"/>
+        <flow-ref name="pokemon:transformResponse" doc:name="pokemon:transformResponse"/>
+        <set-variable variableName="ability" value="#[payload.effect_entries[0].effect]" doc:name="+ability"/>
+        <dw:transform-message doc:name="Set Payload For Response">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	pokemon: flowVars.name,
+	ability: flowVars.ability,
+	weight: flowVars.weight,
+	height: flowVars.height,
+	transactionID: flowVars.transactionID
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Set Log Content">
+            <dw:set-variable variableName="logContent"><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	"message": "Pokemon ability received",
+	"transactionID": flowVars.transactionID,
+	"pokemonName": flowVars.name,
+	"height": flowVars.height as :string,
+	"weight": flowVars.weight as :string,
+	"flow": flowVars.flowName
+}]]></dw:set-variable>
+        </dw:transform-message>
+        <logger:send-log logFormat="JSON" logLevel="INFO" doc:name="Custom Logger Received Second Response">
+            <logger:log-params ref="#[flowVars.logContent]"/>
+        </logger:send-log>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="errorMessage" value="#[exception.message]" doc:name="+errorMessage"/>
+        	<dw:transform-message doc:name="Set Log Content">
+            <dw:set-variable variableName="logContent"><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	"message": flowVars.errorMessage,
+	"transactionID": flowVars.transactionID,
+	"flow": flowVars.flowName
+}]]></dw:set-variable>
+        </dw:transform-message>
+        <logger:send-log logFormat="JSON" logLevel="ERROR" doc:name="Custom Logger Error Caught">
+            <logger:log-params ref="#[flowVars.logContent]"/>
+        </logger:send-log>
+            <dw:transform-message doc:name="Set Payload For Response">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	status: "error",
+	response: {
+		error: flowVars.errorMessage
+	}	
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+    </flow>
+    <sub-flow name="pokemon:transformResponse">
+        <byte-array-to-string-transformer doc:name="Read Response"/>
+        <json:json-to-object-transformer returnClass="java.util.Map" doc:name="JSON to Object"/>
+    </sub-flow>
+</mule>
