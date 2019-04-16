@@ -8,9 +8,9 @@ The third flow is also an example of logging best practices, and shows how a cus
 
 ## API Definition
 Send a POST HTTP request to one of the following URLs and replace {pokemonName} with the name of your favorite pokemon such as pikachu or bulbasaur.
-http://meetup-demo-project.us-e1.cloudhub.io/log/best-practice?name={pokemonName}
-http://meetup-demo-project.us-e1.cloudhub.io/log/bad-practice?name={pokemonName}
-http://meetup-demo-project.us-e1.cloudhub.io/log/custom?name={pokemonName}
+ - http://meetup-demo-project.us-e1.cloudhub.io/log/best-practice?name={pokemonName}
+ - http://meetup-demo-project.us-e1.cloudhub.io/log/bad-practice?name={pokemonName}
+ - http://meetup-demo-project.us-e1.cloudhub.io/log/custom?name={pokemonName}
 
 ## Logging to ELK
 All of the flows in this project use log4j2 to send messages in JSON format to SQS which are consumed by Logstash, persisted to Elasticsearch, and brought to life in Kibana. Feel free to reach out to Big Compass or create an issue on this repository if you would like to see or get a demo of the ELK stack configuration.
