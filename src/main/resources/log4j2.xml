@@ -39,7 +39,7 @@
 			serverAddressPollIntervalMs="${sys:logging.serverAddressPollInterval}"
 			serverHeartbeatSendIntervalMs="${sys:logging.serverHeartbeatSendIntervalMs}"
 			statisticsPrintIntervalMs="${sys:logging.statisticsPrintIntervalMs}">
-			<PatternLayout pattern="%d [%X{resourceName}=%X{resourceId}] [%t] %-5p %c - %m%n"/>
+			<PatternLayout pattern="%d [%t] %-5p %c - %m%n"/>
 		</Log4J2CloudhubLogAppender> 
     </Appenders>
     <Loggers>

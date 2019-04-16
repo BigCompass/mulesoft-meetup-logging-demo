@@ -50,7 +50,19 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
         </dw:transform-message>
         <logger message="Pokemon ability received #[flowVars.ability] with height : #[flowVars.height] and weight : #[flowVars.weight]" level="INFO" doc:name="Log Ending"/>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
-            <logger level="ERROR" doc:name="Logger"/>
+            <logger level="ERROR" doc:name="Logger" message="ALERT! Error occurred!"/>
+            <set-variable variableName="errorMessage" value="#[exception.message]" doc:name="+errorMessage"/>
+            <dw:transform-message doc:name="Set Payload For Response">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	status: "error",
+	response: {
+		error: flowVars.errorMessage
+	}	
+}]]></dw:set-payload>
+            </dw:transform-message>
         </catch-exception-strategy>
     </flow>
     <flow name="pokemon:getPokemonAndLogBestPractice">
@@ -95,7 +107,19 @@ org.apache.log4j.MDC.put("resourceId",flowVars.transactionID);]]></expression-co
 				<expression-component doc:name="Clear MDC"><![CDATA[org.apache.log4j.MDC.remove("resourceName");
 org.apache.log4j.MDC.remove("resourceId")]]></expression-component>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
-            <logger level="ERROR" doc:name="Logger" message="{&quot;message&quot; : &quot;Exception : #[message.exception]&quot;, &quot;transactionID&quot;: &quot;#[flowVars.transactionID]&quot;,  &quot;flow&quot;: &quot;#[flow.name]&quot;}"/>
+            <logger level="ERROR" doc:name="Logger" message="{&quot;message&quot; : &quot;#[exception.message]&quot;, &quot;transactionID&quot;: &quot;#[flowVars.transactionID]&quot;,  &quot;flow&quot;: &quot;#[flow.name]&quot;}"/>
+            <set-variable variableName="errorMessage" value="#[exception.message]" doc:name="+errorMessage"/>
+            <dw:transform-message doc:name="Set Payload For Response">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	status: "error",
+	response: {
+		error: flowVars.errorMessage
+	}	
+}]]></dw:set-payload>
+            </dw:transform-message>
         </catch-exception-strategy>
     </flow>
     <flow name="pokemon:getPokemonAndLogCustom">
@@ -124,8 +148,8 @@ org.apache.log4j.MDC.remove("resourceId")]]></expression-component>
                 <http:uri-param paramName="pokemonName" value="#[flowVars.name]"/>
             </http:request-builder>
         </http:request>
+        <logger message="{&quot;message&quot; : &quot;Debug Payload&quot;, &quot;transactionID&quot;: #[flowVars.transactionID], &quot;pokemonName&quot;: &quot;#[flowVars.name]&quot;, &quot;flow&quot; : &quot;#[flow.name]&quot;, &quot;payload&quot; : #[payload]}" level="DEBUG" category="com.mule.bigcompass.getPokemonNumber" doc:name="DEBUG Logger"/>
         <flow-ref name="pokemon:transformResponse" doc:name="pokemon:transformResponse"/>
-        <logger message="{&quot;message&quot; : &quot;Debug Payload&quot;, &quot;transactionID&quot;: #[flowVars.transactionID], &quot;pokemonName&quot;: &quot;#[flowVars.name]&quot;, &quot;flow&quot; : &quot;#[flow.name]&quot;, &quot;payload&quot; : #[payload]}" level="DEBUG" category="com.mule.bigcompass.getPokemonNumber" doc:name="Debug Logger"/>
         <message-properties-transformer scope="invocation" doc:name="+abilitiesURL, height, weight">
             <add-message-property key="height" value="#[payload.height]"/>
             <add-message-property key="abilitiesURL" value="#[payload.abilities[0].ability.url]"/>
